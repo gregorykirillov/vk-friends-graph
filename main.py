@@ -1,6 +1,8 @@
+import time
 import networkx as nx
 import vk_api
 import matplotlib.pyplot as plt
+
 from group_list import *
 from config import VK_TOKEN
 
@@ -50,10 +52,16 @@ def main():
                     graph.add_node(friendId, name='')
                     graph.add_edge(classmateId, friendId)
                     personsIds.add(classmateId)
-        except Exception as e:
-            print(f'{name} is private or deleted')
-            print(e)
-
+        except vk_api.exceptions.ApiError as e:
+            if e.code == 6:
+                print(f'{name} is too many requests per second. Sleeping for 1 second')
+                time.sleep(1)
+            elif e.code == 18:
+                print(f'{name} is deleted or blocked')
+            elif e.code == 30:
+                print(f'{name} is private')
+            else:
+                print(f'{name} VK API error: {e}')
     remove_alone_friends(graph)
     visualize(graph)
 
