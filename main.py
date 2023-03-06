@@ -41,28 +41,34 @@ def main():
         allPeople.add(classmateId)
         graph.add_node(classmateId, name=name)
 
-        try:
-            response = vk.method('friends.get', {'user_id': classmateId})
-            friendFriends = response['items']
-            persons[classmateId] = friendFriends
+        while True:
+            try:
+                response = vk.method('friends.get', {'user_id': classmateId})
+                friendFriends = response['items']
+                persons[classmateId] = friendFriends
 
-            for friendId in friendFriends:
-                if (friendId not in personsIds):
-                    allPeople.add(friendId)
-                    graph.add_node(friendId, name='')
-                    graph.add_edge(classmateId, friendId)
-                    personsIds.add(classmateId)
-        except vk_api.exceptions.ApiError as e:
-            if e.code == 6:
-                print(f'{name} is too many requests per second. Sleeping for 1 second')
-                time.sleep(1)
-            elif e.code == 18:
-                print(f'{name} is deleted or blocked')
-            elif e.code == 30:
-                print(f'{name} is private')
-            else:
-                print(f'{name} VK API error: {e}')
+                for friendId in friendFriends:
+                    if (friendId not in personsIds):
+                        allPeople.add(friendId)
+                        graph.add_node(friendId, name='')
+                        graph.add_edge(classmateId, friendId)
+                        personsIds.add(classmateId)
+                break
+            except vk_api.exceptions.ApiError as e:
+                if e.code == 6:
+                    print(f'{name} is too many requests per second. Sleeping for 1 second')
+                    time.sleep(1)
+                elif e.code == 18:
+                    print(f'{name} is deleted or blocked')
+                    break
+                elif e.code == 30:
+                    print(f'{name} is private')
+                    break
+                else:
+                    print(f'{name} VK API error: {e}')
+                    break
     remove_alone_friends(graph)
+    print('Building graph')
     visualize(graph)
 
 
