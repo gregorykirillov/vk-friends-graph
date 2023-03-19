@@ -1,8 +1,9 @@
+import matplotlib.pyplot as plt
+import networkx as nx
 import asyncio
 import aiohttp
-import networkx as nx
 import time
-import matplotlib.pyplot as plt
+
 from Exceptions.VkApiException import VkApiException
 
 from group_list import *
@@ -40,7 +41,7 @@ async def get_friends(user_id):
 
 def visualize(graph):
     pos = nx.spring_layout(graph, k=0.3, iterations=50)
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(20, 20))
     nx.draw_networkx_nodes(graph, pos, node_size=50,
                            alpha=0.5, node_color='lightblue')
     nx.draw_networkx_edges(graph, pos, alpha=0.1)
@@ -55,44 +56,60 @@ def remove_alone_friends(graph):
     graph.remove_nodes_from(to_remove)
 
 
-personsIds = set()
 persons = {}
-allPeople = set()
+addedPersons = set()
 graph = nx.Graph()
 
 
-async def main():
-    tasks = []
-    for classmateId in group_list:
-        name = await get_user_name(classmateId)
-        personsIds.add(classmateId)
-        allPeople.add(classmateId)
-        graph.add_node(classmateId, name=name)
+async def parse():
+    for classmate in group_list:
+        classmate_id = classmate["id"]
+        classname_name = classmate["name"]
 
         while True:
             try:
-                friendFriends = await get_friends(classmateId)
-                persons[classmateId] = friendFriends
-
-                for friendId in friendFriends:
-                    if (friendId not in personsIds):
-                        allPeople.add(friendId)
-                        graph.add_node(friendId, name='')
-                        graph.add_edge(classmateId, friendId)
-                        personsIds.add(classmateId)
+                friendFriends = await get_friends(classmate_id)
+                persons[classmate_id] = friendFriends
                 break
             except VkApiException as e:
                 if e.code == 6:
                     print(
-                        f'{name} - {e.message}. Sleeping for 1 second')
+                        f'{classname_name} - {e.message}. Sleeping for 1 second')
                     time.sleep(1)
                 else:
-                    print(f'{name} VK API error: {e}')
+                    print(f'{classname_name} VK API error: {e}')
                     break
 
-    await asyncio.gather(*tasks)
+
+def build_graph():
+    for classmate in group_list:
+        classmate_id = classmate["id"]
+        classmate_name = classmate["name"]
+
+        graph.add_node(classmate_id, name=classmate_name)
+        addedPersons.add(classmate_id)
+
+        for personId in persons:
+            if (personId in addedPersons):
+                continue
+
+            personFriends = persons[personId]
+            for friendId in personFriends:
+                if (len(personFriends) < 2):
+                    continue
+
+                if (friendId not in addedPersons):
+                    graph.add_node(friendId, name='')
+                graph.add_edge(personId, friendId)
+
+
+async def main():
+    await parse()
+    build_graph()
     remove_alone_friends(graph)
-    print('Building graph')
+
+    print('Visualizing graph')
     visualize(graph)
+
 
 asyncio.run(main())
