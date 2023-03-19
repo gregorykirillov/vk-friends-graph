@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import asyncio
 import aiohttp
+import pickle
 import time
 
 from Exceptions.VkApiException import VkApiException
@@ -40,6 +41,7 @@ async def get_friends(user_id):
 
 
 def visualize(graph):
+    print("Visualizing graph")
     pos = nx.spring_layout(graph, k=0.3, iterations=50)
     plt.figure(figsize=(20, 20))
     nx.draw_networkx_nodes(graph, pos, node_size=50,
@@ -56,12 +58,25 @@ def remove_alone_friends(graph):
     graph.remove_nodes_from(to_remove)
 
 
-persons = {}
 addedPersons = set()
 graph = nx.Graph()
 
 
+def dumpPersons(persons):
+    with open('persons.pickle', 'wb') as f:
+        pickle.dump(persons, f)
+
+
+def loadPersonsDump():
+    try:
+        with open('persons.pickle', 'rb') as f:
+            return pickle.load(f)
+    except:
+        return {}
+
+
 async def parse():
+    persons = {}
     for classmate in group_list:
         classmate_id = classmate["id"]
         classname_name = classmate["name"]
@@ -79,9 +94,10 @@ async def parse():
                 else:
                     print(f'{classname_name} VK API error: {e}')
                     break
+    return persons
 
 
-def build_graph():
+def build_graph(persons):
     for classmate in group_list:
         classmate_id = classmate["id"]
         classmate_name = classmate["name"]
@@ -95,20 +111,23 @@ def build_graph():
 
             personFriends = persons[personId]
             for friendId in personFriends:
-                if (len(personFriends) < 2):
-                    continue
-
                 if (friendId not in addedPersons):
                     graph.add_node(friendId, name='')
                 graph.add_edge(personId, friendId)
 
 
 async def main():
-    await parse()
-    build_graph()
+    persons = loadPersonsDump()
+
+    if (len(persons) == 0):
+        persons = await parse()
+        dumpPersons(persons)
+    else:
+        print("Loading persons from dump")
+
+    build_graph(persons)
     remove_alone_friends(graph)
 
-    print('Visualizing graph')
     visualize(graph)
 
 
