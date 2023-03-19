@@ -1,28 +1,30 @@
 import matplotlib.pyplot as plt
+from datetime import datetime
 import networkx as nx
 import asyncio
 import aiohttp
 import pickle
 import time
 
+from config import FRIENDS_DEPTH
+from routes import get_users_URL, get_friends_URL
 from Exceptions.VkApiException import VkApiException
 
 from group_list import *
-from config import VK_TOKEN
 
 
 async def get_user_name(id):
     async with aiohttp.ClientSession() as session:
-        url = f"https://api.vk.com/method/users.get?user_ids={id}&access_token={VK_TOKEN}&v=5.131"
+        url = get_users_URL(id)
         async with session.get(url) as response:
             response = await response.json()
             userInfo = response['response'][0]
             return f"{userInfo['first_name']} {userInfo['last_name']}"
 
 
-async def get_friends(user_id):
+async def get_friends(id):
     async with aiohttp.ClientSession() as session:
-        url = f"https://api.vk.com/method/friends.get?user_id={user_id}&access_token={VK_TOKEN}&v=5.131"
+        url = get_friends_URL(id)
         async with session.get(url) as response:
             json = await response.json()
 
@@ -41,15 +43,18 @@ async def get_friends(user_id):
 
 
 def visualize(graph):
-    print("Visualizing graph")
+    start_time = datetime.now()
+    print(f"Visualizing graph. Size: {graph.size()}")
     pos = nx.spring_layout(graph, k=0.3, iterations=50)
-    plt.figure(figsize=(20, 20))
+    plt.figure(figsize=(20, 12))
     nx.draw_networkx_nodes(graph, pos, node_size=50,
                            alpha=0.5, node_color='lightblue')
     nx.draw_networkx_edges(graph, pos, alpha=0.1)
-    nx.draw_networkx_labels(graph, pos, labels={
-                            node: graph.nodes[node]['name'] for node in graph.nodes()}, font_size=10)
+    # nx.draw_networkx_labels(graph, pos, labels={
+    #     node: graph.nodes[node]['name'] for node in graph.nodes()}, font_size=10)
     plt.axis('off')
+    end_time = datetime.now()
+    print(f"Visualized for {(end_time - start_time).total_seconds()} seconds")
     plt.show()
 
 
@@ -70,30 +75,47 @@ def dumpPersons(persons):
 def loadPersonsDump():
     try:
         with open('persons.pickle', 'rb') as f:
+            print('Loading persons from dump')
             return pickle.load(f)
     except:
         return {}
 
 
+async def parseFriends(persons, classmate_id, classmate_name, depth=FRIENDS_DEPTH):
+    print('Parsing', classmate_id)
+    while True:
+        try:
+            friendFriends = await get_friends(classmate_id)
+            persons[classmate_id] = friendFriends
+
+            if depth > 1:
+                for friend_id in friendFriends:
+                    if friend_id not in persons:
+                        await parseFriends(persons, friend_id, "", depth=depth-1)
+
+            break
+        except VkApiException as e:
+            if e.code == 6:
+                print(
+                    f'{classmate_name} - {e.message}. Sleeping for 1 second')
+                time.sleep(1)
+            else:
+                print(f'{classmate_name} VK API error: {e}')
+                break
+    return persons
+
+
 async def parse():
+    start_time = datetime.now()
     persons = {}
     for classmate in group_list:
         classmate_id = classmate["id"]
-        classname_name = classmate["name"]
+        classmate_name = classmate["name"]
 
-        while True:
-            try:
-                friendFriends = await get_friends(classmate_id)
-                persons[classmate_id] = friendFriends
-                break
-            except VkApiException as e:
-                if e.code == 6:
-                    print(
-                        f'{classname_name} - {e.message}. Sleeping for 1 second')
-                    time.sleep(1)
-                else:
-                    print(f'{classname_name} VK API error: {e}')
-                    break
+        await parseFriends(persons, classmate_id, classmate_name)
+    end_time = datetime.now()
+    print(f"Parsed for {(end_time - start_time).total_seconds()} seconds")
+
     return persons
 
 
@@ -101,6 +123,7 @@ def build_graph(persons):
     for classmate in group_list:
         classmate_id = classmate["id"]
         classmate_name = classmate["name"]
+        print(classmate_name)
 
         graph.add_node(classmate_id, name=classmate_name)
         addedPersons.add(classmate_id)
@@ -108,7 +131,6 @@ def build_graph(persons):
         for personId in persons:
             if (personId in addedPersons):
                 continue
-
             personFriends = persons[personId]
             for friendId in personFriends:
                 if (friendId not in addedPersons):
@@ -122,8 +144,6 @@ async def main():
     if (len(persons) == 0):
         persons = await parse()
         dumpPersons(persons)
-    else:
-        print("Loading persons from dump")
 
     build_graph(persons)
     remove_alone_friends(graph)
