@@ -55,7 +55,30 @@ def visualize(graph):
     plt.axis('off')
     end_time = datetime.now()
     print(f"Visualized for {(end_time - start_time).total_seconds()} seconds")
+
+    saveDump('visualizedGraph', graph)
+
     plt.show()
+
+
+def build_graph(persons):
+    for classmate in group_list:
+        classmate_id = classmate["id"]
+        classmate_name = classmate["name"]
+        print(classmate_name)
+
+        graph.add_node(classmate_id, name=classmate_name)
+        addedPersons.add(classmate_id)
+
+        for personId in persons:
+            if (personId in addedPersons):
+                continue
+            personFriends = persons[personId]
+            for friendId in personFriends:
+                if (friendId not in addedPersons):
+                    graph.add_node(friendId, name='')
+                graph.add_edge(personId, friendId)
+    saveDump('buildedGraph', graph)
 
 
 def remove_alone_friends(graph):
@@ -67,15 +90,15 @@ addedPersons = set()
 graph = nx.Graph()
 
 
-def dumpPersons(persons):
-    with open('persons.pickle', 'wb') as f:
-        pickle.dump(persons, f)
+def saveDump(file_name, variable):
+    with open(f'{file_name}.picle', 'wb') as f:
+        pickle.dump(variable, f)
 
 
-def loadPersonsDump():
+def loadDump(file_name):
     try:
-        with open('persons.pickle', 'rb') as f:
-            print('Loading persons from dump')
+        with open(f'{file_name}.pickle', 'rb') as f:
+            print(f'Loading {file_name} from dump')
             return pickle.load(f)
     except:
         return {}
@@ -119,34 +142,17 @@ async def parse():
     return persons
 
 
-def build_graph(persons):
-    for classmate in group_list:
-        classmate_id = classmate["id"]
-        classmate_name = classmate["name"]
-        print(classmate_name)
-
-        graph.add_node(classmate_id, name=classmate_name)
-        addedPersons.add(classmate_id)
-
-        for personId in persons:
-            if (personId in addedPersons):
-                continue
-            personFriends = persons[personId]
-            for friendId in personFriends:
-                if (friendId not in addedPersons):
-                    graph.add_node(friendId, name='')
-                graph.add_edge(personId, friendId)
-
-
 async def main():
-    persons = loadPersonsDump()
+    persons = loadDump('persons')
+    graph = loadDump('graph')
 
     if (len(persons) == 0):
         persons = await parse()
-        dumpPersons(persons)
+        saveDump('persons', persons)
 
-    build_graph(persons)
-    remove_alone_friends(graph)
+    if (len(graph) == 0):
+        build_graph(persons)
+        remove_alone_friends(graph)
 
     visualize(graph)
 
