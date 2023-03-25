@@ -12,19 +12,38 @@
 
 Визуализация графа занимает ~12000 секунд
 
+Ryzen 3 4300U:
+- Diameter: 6h 8m
+- Radius: 6h 7m
+
+i5 12400:
+- Diameter: 4h 39m
+- Radius: 4h 40m
+- Central_vertices: 3h 36m
+- Degree centrality: 1s
+- Closeness centrality: 3h 42m
+- Eigen vector centrality: 5s
+
 ## Показатели
 
 Размер графа - 654842 ноды и 1371382 связи.
+
 После удаления зонтиков (людей с 1 другом):
+
 100033 ноды и 816573 связи
 
 ## Метрики
 
 diameter: 6
+
 radius: 3
+
 central_vertices: [220270939]
+
 max_degree_centrality: 0.05094590940501347
+
 max_proximity_centrality: 0.43510336052429754
+
 max_eigenvector_centrality: 0.08829209780528526
 
 ![Screenshot_78](https://user-images.githubusercontent.com/33432290/227708460-3d80a7d1-2e6b-479b-bdec-a191f6086893.png)
